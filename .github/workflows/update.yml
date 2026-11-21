@@ -1,0 +1,43 @@
+name: Update OpenAnime
+
+on:
+  schedule:
+    # Run once a week every Sunday at 00:00 UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  check-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Run update check
+        id: updater
+        run: |
+          ./update.sh
+
+      - name: Build and verify package
+        if: steps.updater.outputs.UPDATED == 'true'
+        run: |
+          nix build -L .#openanime
+
+      - name: Commit and push changes
+        if: steps.updater.outputs.UPDATED == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add source.nix
+          git commit -m "chore(openanime): update to ${{ steps.updater.outputs.NEW_VERSION }}"
+          git push
