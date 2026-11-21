@@ -5,8 +5,12 @@
   binutils-unwrapped,
   autoPatchelfHook,
   makeWrapper,
+  asar,
+  python3,
+  imagemagick,
   alsa-lib,
   at-spi2-atk,
+  cacert,
   cairo,
   cups,
   dbus,
@@ -51,6 +55,9 @@ stdenv.mkDerivation rec {
     binutils-unwrapped
     autoPatchelfHook
     makeWrapper
+    asar
+    python3
+    imagemagick
   ];
 
   buildInputs = [
@@ -103,12 +110,46 @@ stdenv.mkDerivation rec {
 
     cp -r usr/lib/openanime/* $out/lib/openanime/
 
-    if [ -f usr/share/pixmaps/openanime.png ]; then
-      cp usr/share/pixmaps/openanime.png $out/share/pixmaps/
+    # Disable nativeTheme.on updated event pop-up on Linux desktop portals / Wayland startup
+    if [ -f "$out/lib/openanime/resources/app.asar" ]; then
+      asar extract "$out/lib/openanime/resources/app.asar" asar-extracted
+      if [ -f asar-extracted/src/window.js ]; then
+        python3 -c "
+import re
+with open('asar-extracted/src/window.js', 'rb') as f:
+    content = f.read()
+pattern = rb'nativeTheme(\[\s*[\x27\"]on[\x27\"]\s*\]|\.on)\s*\('
+match = re.search(pattern, content)
+if match:
+    content = content[:match.start()] + b'(()=>{})(' + content[match.end():]
+    with open('asar-extracted/src/window.js', 'wb') as f:
+        f.write(content)
+"
+        asar pack asar-extracted "$out/lib/openanime/resources/app.asar"
+      fi
+      rm -rf asar-extracted
     fi
 
+    # Install icons into hicolor icon theme hierarchy for Wayland & Desktop Environments
+    ICON_SRC=""
+    if [ -f usr/share/pixmaps/openanime.png ]; then
+      ICON_SRC="usr/share/pixmaps/openanime.png"
+      cp "$ICON_SRC" $out/share/pixmaps/openanime.png
+    fi
+
+    if [ -n "$ICON_SRC" ]; then
+      for size in 16 24 32 48 64 128 256 512 1024; do
+        mkdir -p "$out/share/icons/hicolor/''${size}x''${size}/apps"
+        magick "$ICON_SRC" -resize "''${size}x''${size}" "$out/share/icons/hicolor/''${size}x''${size}/apps/openanime.png"
+      done
+    fi
+
+    # Install and configure desktop entry
     if [ -f usr/share/applications/openanime.desktop ]; then
       cp usr/share/applications/openanime.desktop $out/share/applications/
+      if ! grep -q "StartupWMClass" "$out/share/applications/openanime.desktop"; then
+        echo "StartupWMClass=openanime" >> "$out/share/applications/openanime.desktop"
+      fi
     fi
 
     # The executable can be either openanime or Openanime
@@ -118,8 +159,9 @@ stdenv.mkDerivation rec {
     fi
 
     makeWrapper "$EXECUTABLE" $out/bin/openanime \
+      --set SSL_CERT_FILE "${cacert}/etc/ssl/certs/ca-bundle.crt" \
       --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath [ libglvnd ]}" \
-      --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations}}"
+      --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations --disable-features=Vulkan}}"
 
     runHook postInstall
   '';
