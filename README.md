@@ -1,6 +1,6 @@
 # openanime-nix
 
-Nix flake packaging [OpenAnime Desktop](https://github.com/OpenAnime/desktop-ts) ([openani.me](https://openani.me)) directly from the official Debian releases (`.deb`), pre-patched with `autoPatchelfHook` for immediate execution on NixOS without source compilation.
+Nix flake packaging [OpenAnime Desktop](https://github.com/OpenAnime/desktop-ts) ([openani.me](https://openani.me)) directly from official Debian (`.deb`) releases, pre-patched for NixOS without source compilation.
 
 ---
 
@@ -10,13 +10,13 @@ Nix flake packaging [OpenAnime Desktop](https://github.com/OpenAnime/desktop-ts)
 
 ## Features
 
-- **Binary packaging:** No heavy Node.js, Electron or native toolchain builds.
-- **Wayland & Ozone ready:** Inherits Wayland flags automatically when running on Wayland.
-- **Weekly Automated Updates:** A GitHub Action checks for new upstream releases every Sunday, verifies the build with Nix, updates `source.nix`, and commits the changes.
+- **Instant binary install:** No heavy Node.js or Electron compilation.
+- **Wayland ready:** Pre-configured with Ozone & Wayland flags.
+- **Weekly updates:** Automated GitHub Action checks for new upstream releases every Sunday.
 
 ## Usage
 
-### Run directly with Flakes:
+### Run without installing:
 
 ```bash
 nix run github:tempestian/openanime-nix
@@ -24,9 +24,9 @@ nix run github:tempestian/openanime-nix
 
 ---
 
-### In your Flake (`flake.nix`):
+### In your `flake.nix`:
 
-Add `openanime` to your `inputs`:
+Add to `inputs` and apply the overlay:
 
 ```nix
 {
@@ -39,71 +39,28 @@ Add `openanime` to your `inputs`:
   };
 
   outputs = { self, nixpkgs, openanime, ... }@inputs: {
-    # Pass inputs or openanime to your configuration
     nixosConfigurations.myhostname = nixpkgs.lib.nixosSystem {
-      specialArgs = { inherit inputs; };
-      modules = [ ./configuration.nix ];
+      modules = [
+        {
+          nixpkgs.overlays = [ openanime.overlays.default ];
+        }
+        ./configuration.nix
+      ];
     };
   };
 }
 ```
 
----
+Now you can simply use `openanime` anywhere in your system or Home Manager packages:
 
-### Adding to NixOS (`configuration.nix`):
-
-**Option 1: Directly via `inputs`**
 ```nix
-{ pkgs, inputs, ... }:
-
-{
-  environment.systemPackages = [
-    inputs.openanime.packages.${pkgs.system}.default
-  ];
-}
+environment.systemPackages = with pkgs; [
+  openanime
+];
 ```
-
-**Option 2: Using the Overlay**
+or in Home Manager:
 ```nix
-{ pkgs, inputs, ... }:
-
-{
-  nixpkgs.overlays = [
-    inputs.openanime.overlays.default
-  ];
-
-  environment.systemPackages = with pkgs; [
-    openanime
-  ];
-}
-```
-
----
-
-### Adding to Home Manager (`home.nix` or `packages.nix`):
-
-**Option 1: Directly via `inputs`**
-```nix
-{ pkgs, inputs, ... }:
-
-{
-  home.packages = [
-    inputs.openanime.packages.${pkgs.system}.default
-  ];
-}
-```
-
-**Option 2: Using the Overlay**
-```nix
-{ pkgs, inputs, ... }:
-
-{
-  nixpkgs.overlays = [
-    inputs.openanime.overlays.default
-  ];
-
-  home.packages = with pkgs; [
-    openanime
-  ];
-}
+home.packages = with pkgs; [
+  openanime
+];
 ```
