@@ -2,6 +2,12 @@
 
 Nix flake packaging [OpenAnime Desktop](https://github.com/OpenAnime/desktop-ts) ([openani.me](https://openani.me)) directly from the official Debian releases (`.deb`), pre-patched with `autoPatchelfHook` for immediate execution on NixOS without source compilation.
 
+---
+
+[Türkçe README için tıklayın](README.tr.md)
+
+---
+
 ## Features
 
 - **Binary packaging:** No heavy Node.js, Electron or native toolchain builds.
