@@ -130,19 +130,24 @@ if match:
       rm -rf asar-extracted
     fi
 
-    # Install icons into hicolor icon theme hierarchy for Wayland & Desktop Environments
-    ICON_SRC=""
-    if [ -f usr/share/pixmaps/openanime.png ]; then
+    # Use the official OpenAnime icon (bundled in repo), falling back to asar or pixmaps
+    ICON_SRC="${./openanime.png}"
+    if [ ! -f "$ICON_SRC" ] && [ -f "$out/lib/openanime/resources/app.asar" ]; then
+      asar extract-file "$out/lib/openanime/resources/app.asar" "assets/icon.png" asar-icon.png 2>/dev/null || true
+      if [ -f asar-icon.png ]; then
+        ICON_SRC="asar-icon.png"
+      fi
+    fi
+    if [ ! -f "$ICON_SRC" ] && [ -f usr/share/pixmaps/openanime.png ]; then
       ICON_SRC="usr/share/pixmaps/openanime.png"
-      cp "$ICON_SRC" $out/share/pixmaps/openanime.png
     fi
 
-    if [ -n "$ICON_SRC" ]; then
-      for size in 16 24 32 48 64 128 256 512 1024; do
-        mkdir -p "$out/share/icons/hicolor/''${size}x''${size}/apps"
-        magick "$ICON_SRC" -resize "''${size}x''${size}" "$out/share/icons/hicolor/''${size}x''${size}/apps/openanime.png"
-      done
-    fi
+    cp "$ICON_SRC" $out/share/pixmaps/openanime.png
+
+    for size in 16 24 32 48 64 128 256 512; do
+      mkdir -p "$out/share/icons/hicolor/''${size}x''${size}/apps"
+      magick "$ICON_SRC" -resize "''${size}x''${size}" "$out/share/icons/hicolor/''${size}x''${size}/apps/openanime.png"
+    done
 
     # Install and configure desktop entry
     if [ -f usr/share/applications/openanime.desktop ]; then
